@@ -23,7 +23,7 @@
 
 ```sh
 composer require paoatoffice/reports-web
-docker run -d -p 3107:3107 ghcr.io/reportsweb/engine:1.0.1
+docker run -d -p 3107:3107 ghcr.io/reportsweb/engine:1.0.0
 ```
 
 ```php
@@ -91,7 +91,7 @@ docker compose down --volumes   # 終わったら停止・削除
 
 ```sh
 composer require paoatoffice/reports-web
-docker run -d -p 3107:3107 ghcr.io/reportsweb/engine:1.0.1
+docker run -d -p 3107:3107 ghcr.io/reportsweb/engine:1.0.0
 ```
 
 `PrintData` builds the print data; `ReportsWebEngine::renderPdf()` returns the PDF bytes (PHP 8.1+, no curl needed). The package and the engine are trial builds: output carries a red "SAMPLE" mark until a purchased license file is configured. Package: Reports.Web license. Sample code: MIT.
