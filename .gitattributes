@@ -1,0 +1,11 @@
+# Composer (Packagist) downloads only the library: composer.json, src/, README.md, LICENSE.md.
+/01.* export-ignore
+/02.* export-ignore
+/03.* export-ignore
+/common export-ignore
+/docs export-ignore
+/Manual export-ignore
+/LICENSE export-ignore
+/.gitignore export-ignore
+/.gitattributes export-ignore
+*.sh text eol=lf

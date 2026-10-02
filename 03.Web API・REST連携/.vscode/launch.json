@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "PHP: ブレークポイントで確認",
+      "type": "php",
+      "request": "launch",
+      "port": 9003,
+      "pathMappings": {
+        "/opt/reports/php": "${workspaceFolder}/api"
+      },
+      "preLaunchTask": "デバッグ用に起動"
+    }
+  ]
+}

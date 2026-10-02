@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "起動",
+      "type": "shell",
+      "command": "docker compose up -d --build --wait --wait-timeout 180",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "PHPログ",
+      "type": "shell",
+      "command": "docker compose logs -f php",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "デバッグ用に起動",
+      "type": "shell",
+      "command": "docker compose -f compose.yaml -f compose.debug.yaml up -d --build --wait --wait-timeout 180",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "停止（サンプルDBも破棄）",
+      "type": "shell",
+      "command": "docker compose down --volumes",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

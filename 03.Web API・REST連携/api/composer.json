@@ -1,0 +1,15 @@
+{
+    "require": {
+        "php": ">=8.1",
+        "paoatoffice/reports-web": "^1.0"
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/ReportsWeb/wasm-php"
+        }
+    ],
+    "config": {
+        "sort-packages": true
+    }
+}

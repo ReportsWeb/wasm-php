@@ -1,0 +1,13 @@
+{
+  "services": {
+    "php": {
+      "environment": {
+        "XDEBUG_MODE": "debug",
+        "XDEBUG_CONFIG": "client_host=host.docker.internal client_port=9003"
+      },
+      "extra_hosts": [
+        "host.docker.internal:host-gateway"
+      ]
+    }
+  }
+}

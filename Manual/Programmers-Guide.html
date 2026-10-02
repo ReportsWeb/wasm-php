@@ -1,0 +1,347 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reports.web PHP WASM言語ラッパー プログラマーズガイド／APIリファレンス</title><style>
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#edf3f4;color:#18323b;font-family:"Yu Gothic","Meiryo",sans-serif;font-size:15px;line-height:1.8}
+header{position:sticky;top:0;z-index:2;background:#123f4b;color:#fff;padding:12px max(18px,calc((100vw - 1040px)/2))}header a{color:#fff;margin-right:24px}
+main{max-width:1040px;margin:30px auto;background:#fff;padding:54px 68px;box-shadow:0 7px 35px #143a4218}
+h1{font-size:30px;line-height:1.45;color:#123e48;border-bottom:4px solid #d2a642;padding-bottom:14px}h2{font-size:22px;color:#126d71;margin-top:46px;border-left:6px solid #d2a642;padding-left:13px}h3{font-size:17px;color:#17626a;margin-top:28px}h2,h3{scroll-margin-top:65px;break-after:avoid}
+a{color:#116c88;text-underline-offset:3px}table{border-collapse:collapse;width:100%;font-size:13px;margin:18px 0}th,td{border:1px solid #d2e0e2;padding:8px 10px;text-align:left;vertical-align:top}th{background:#eaf4f3}code{font-family:Consolas,"Yu Gothic",monospace;font-size:.92em}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eff5f5;border-left:4px solid #27818a;padding:15px;font-size:12px;line-height:1.55}img{display:block;max-width:100%;height:auto;margin:22px auto}li{margin:5px 0}
+.cover{min-height:0}.toc{margin:40px 0;padding:27px 32px;background:#f5f9f8;border:1px solid #d6e5e4;border-radius:8px}.toc h2{margin-top:0}.toc ul{list-style:none;padding-left:0}.toc ul ul{padding-left:22px}.toc li{border-bottom:1px dotted #c7d7d8;padding:5px 0}.toc a{display:flex;gap:10px;text-decoration:none}.toc-label{flex:1}.toc-page{width:3em;text-align:right;font-variant-numeric:tabular-nums}.page-marker{font-size:1px;color:transparent}
+@media(max-width:700px){header{position:static}main{margin:0;padding:28px 20px;box-shadow:none}h1{font-size:24px}h2{font-size:19px}.toc{padding:18px}}
+@page{size:A4;margin:17mm 17mm 20mm}
+@media print{body{background:#fff;font-size:10.2pt;line-height:1.68;-webkit-print-color-adjust:exact;print-color-adjust:exact}header{display:none}main{max-width:none;margin:0;padding:0;box-shadow:none}.cover{break-after:page}.toc{break-after:page;margin:0;padding:0;border:0;background:#fff}.toc h2{border:0;padding:0;color:#123e48}h1{font-size:21pt}h2{font-size:14pt;margin-top:24px}h3{font-size:11.5pt}p{orphans:3;widows:3}table{font-size:8.5pt}tr,pre,img{break-inside:avoid}pre{font-size:8.3pt}img{max-height:92mm}a{color:#174f60;text-decoration:none}}
+</style></head><body><header><a data-manual-index href="../../../README.html">マニュアル一覧</a><a href="Programmers-Guide.pdf">PDFで読む</a></header><main><section class="cover"><h1 id="reportsweb-php-wasm-api">Reports.web PHP WASM言語ラッパー プログラマーズガイド／APIリファレンス</h1>
+<p>Reports.webのWASM言語ラッパーは、PHPの業務データから、共通の印刷データPREPEJを組み立てるための小さなライブラリです。帳票の座標計算やPDF描画を各言語へ重複実装せず、ブラウザまたはサーバーの共通WASM帳票エンジンへ任せます。</p>
+<p>この一冊では、初めて利用する方が次のプログラムを作れるようになることを目標にしています。</p>
+<ul>
+<li>PHPから帳票定義PREPDJへ業務データを流し込む</li>
+<li>完成した印刷データPREPEJをJSON、ファイル、HTTPで受け渡す</li>
+<li>ブラウザでSVGプレビュー・印刷・PDF生成を行う</li>
+<li>サーバー側の共通WASMエンジンでPDFを生成・配信する</li>
+<li>PHPラッパーの主要APIを調べる</li>
+</ul>
+<p><img alt="WASM言語ラッパーの全体構成" src="images/wasm-wrapper-architecture.svg" /></p>
+</section><nav class="toc"><h2>目次</h2><div class="toc">
+<ul>
+<li><a href="#1"><span class="toc-label">1. 最初に知っておくこと</span><span class="toc-page" data-marker="RM001">3</span></a><ul>
+<li><a href="#11-wasm"><span class="toc-label">1.1 「WASM言語ラッパー」とは</span><span class="toc-page" data-marker="RM002">3</span></a></li>
+<li><a href="#12"><span class="toc-label">1.2 帳票ができるまで</span><span class="toc-page" data-marker="RM003">3</span></a></li>
+<li><a href="#13"><span class="toc-label">1.3 二つのファイル</span><span class="toc-page" data-marker="RM004">3</span></a></li>
+</ul>
+</li>
+<li><a href="#2"><span class="toc-label">2. サンプルを動かす</span><span class="toc-page" data-marker="RM005">3</span></a></li>
+<li><a href="#3"><span class="toc-label">3. 最初の一枚を作る</span><span class="toc-page" data-marker="RM006">4</span></a></li>
+<li><a href="#4-printdata-api"><span class="toc-label">4. PrintData APIリファレンス</span><span class="toc-page" data-marker="RM007">5</span></a><ul>
+<li><a href="#41"><span class="toc-label">4.1 値とインデックス</span><span class="toc-page" data-marker="RM008">6</span></a></li>
+<li><a href="#42"><span class="toc-label">4.2 ページごとに定義を切り替える</span><span class="toc-page" data-marker="RM009">7</span></a></li>
+</ul>
+</li>
+<li><a href="#5"><span class="toc-label">5. 明細と改ページ</span><span class="toc-page" data-marker="RM010">8</span></a></li>
+<li><a href="#6"><span class="toc-label">6. 画像・バーコード・動的属性</span><span class="toc-page" data-marker="RM011">8</span></a></li>
+<li><a href="#7"><span class="toc-label">7. ブラウザへ渡して表示する</span><span class="toc-page" data-marker="RM012">9</span></a></li>
+<li><a href="#8-pdf"><span class="toc-label">8. PDFを作る二つの場所</span><span class="toc-page" data-marker="RM013">9</span></a><ul>
+<li><a href="#81"><span class="toc-label">8.1 ブラウザで作る</span><span class="toc-page" data-marker="RM014">9</span></a></li>
+<li><a href="#82"><span class="toc-label">8.2 サーバーで作る</span><span class="toc-page" data-marker="RM015">9</span></a></li>
+</ul>
+</li>
+<li><a href="#9-prepej"><span class="toc-label">9. PREPEJを保存・再利用する</span><span class="toc-page" data-marker="RM016">10</span></a></li>
+<li><a href="#10-web-api"><span class="toc-label">10. Web APIとデータベース</span><span class="toc-page" data-marker="RM017">10</span></a></li>
+<li><a href="#11"><span class="toc-label">11. テストとリリース確認</span><span class="toc-page" data-marker="RM018">10</span></a></li>
+<li><a href="#12_1"><span class="toc-label">12. よくある問題</span><span class="toc-page" data-marker="RM019">11</span></a></li>
+<li><a href="#13_1"><span class="toc-label">13. 配置・更新・ライセンス</span><span class="toc-page" data-marker="RM020">11</span></a></li>
+</ul>
+</div>
+</nav><section class="chapters"><h2 id="1">1. 最初に知っておくこと<span class="page-marker">RM001</span></h2>
+<h3 id="11-wasm">1.1 「WASM言語ラッパー」とは<span class="page-marker">RM002</span></h3>
+<p>本書では、各言語でPREPEJを組み立てる補助ライブラリを<strong>WASM言語ラッパー</strong>と呼びます。実装の中心は<code>PrintData</code>です。ラッパー自身はWASMを直接ロードせず、SVGやPDFも描きません。出力形式を共通JSONに揃えることで、業務処理と描画エンジンを疎結合にします。</p>
+<p>これはPure Java／Pure Python／WPF・.NETの言語別エンジンとは異なる方式です。Pure系は各言語の帳票エンジンを直接呼びます。WASM方式は7言語が同じWASMエンジンとブラウザUIを共有します。</p>
+<h3 id="12">1.2 帳票ができるまで<span class="page-marker">RM003</span></h3>
+<ol>
+<li>デザイナーで帳票定義 <code>.prepdj</code> を作ります。</li>
+<li>PHPの<code>PrintData</code>へPREPDJを設定します。</li>
+<li>DBやAPIから取得した値を、デザイン上のオブジェクト名へ設定します。</li>
+<li>1ページずつ確定し、<code>.prepej</code>を作ります。</li>
+<li>PREPEJをブラウザのプレビュアー、またはサーバーWASMへ渡します。</li>
+<li>共通エンジンがSVGプレビュー、PDF、印刷を担当します。</li>
+</ol>
+<h3 id="13">1.3 二つのファイル<span class="page-marker">RM004</span></h3>
+<table>
+<thead>
+<tr>
+<th>拡張子</th>
+<th>呼び名</th>
+<th>役割</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.prepdj</code></td>
+<td>帳票定義</td>
+<td>用紙、文字、罫線、画像、バーコード、繰返しなどのデザイン</td>
+</tr>
+<tr>
+<td><code>.prepej</code></td>
+<td>印刷データ（Print Document）</td>
+<td>帳票定義とページごとの値・属性をまとめた、再表示・再印刷可能な文書</td>
+</tr>
+</tbody>
+</table>
+<p>PREPEJは単なる一時レスポンスではありません。ファイル保存、再読込、メール添付、REST API、サーバー間転送、後日の再印刷に同じ文書を使えます。</p>
+<h2 id="2">2. サンプルを動かす<span class="page-marker">RM005</span></h2>
+<p>基準環境は <strong>PHP 8.3</strong> です。同梱のDocker構成では必要な言語環境とDBをコンテナ内に用意するため、まずPC側で準備するのはDockerです。Windows／MacではDocker Desktopを起動し、LinuxではDocker EngineとComposeプラグインが使える状態にしてください。</p>
+<p>ZIPを全体ごと展開してください。共通RuntimeとDB初期化データも使うため、番号フォルダーだけを取り出さないでください。初回のイメージ取得とビルドにはインターネット接続が必要です。</p>
+<p>短いコードから学ぶ場合は <code>WebAssembly/Samples/php/01.あっという間に帳票出力/README.html</code> から始めます。ここでは全帳票を確認できる02の起動を説明します。</p>
+<ol>
+<li>VS CodeやCursor、または使い慣れたエディターで <code>WebAssembly/Samples/php/02.全帳票をWebでプレビュー</code> を開きます。</li>
+<li>そのフォルダーでターミナルを開き、次を実行します。開発用のReports Webリポジトリをビルドする必要はありません。</li>
+</ol>
+<pre><code class="language-sh">docker compose up -d --build --wait
+docker compose ps
+</code></pre>
+<ol start="3">
+<li>起動が成功してから、ブラウザで <code>http://127.0.0.1:19201/</code> を開きます。URLを開くだけではアプリは起動しません。</li>
+<li>終了するときは、同じフォルダーで <code>docker compose down</code> を実行します。このサンプルのコンテナとネットワークが削除されます。DBデータの初期化やイメージの片付けは、そのフォルダーのREADMEに手順があります。</li>
+</ol>
+<p>02では、単純帳票、10の倍数、郵便番号一覧、見積書、請求書、商品一覧、名刺、デザイン機能見本を確認できます。請求書などを選び、ソースと出力結果を見比べてください。別のアプリから帳票APIを呼ぶ使い方は、続く03のREADMEに説明しています。</p>
+<h2 id="3">3. 最初の一枚を作る<span class="page-marker">RM006</span></h2>
+<p>01のサンプルは、印刷データの形を見やすくするためにPHPの配列を直接組み立てています。業務アプリでは、同じ印刷データを<code>PrintData</code>クラスで作れます。まず、動いた01の画面を使って、この違いを試しましょう。新しいWebサーバーを作る必要はありません。</p>
+<ol>
+<li>01のREADMEに沿ってサンプルを起動します。</li>
+<li>ZIP内の <code>WebAssembly/Samples/php/02.全帳票をWebでプレビュー/src/PrintData.php</code> を、01の <code>quick-start.php</code> と同じフォルダーへコピーします。02を起動する必要はありません。</li>
+<li>元へ戻せるよう <code>quick-start.php</code> のコピーを取り、内容を次のコードに置き換えます。<code>report.prepdj</code>、<code>router.php</code>、<code>index.html</code> はそのまま使います。</li>
+</ol>
+<pre><code class="language-text">01.あっという間に帳票出力/
+├─ quick-start.php   ← 次のコードに変更
+├─ PrintData.php     ← 02のsrcからコピー
+├─ report.prepdj     ← 同梱の定義をそのまま使う
+├─ router.php
+└─ index.html
+</code></pre>
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+use Pao\Reports\Web\PrintData;
+
+require_once __DIR__ . '/PrintData.php';
+
+function createPrintData(): array
+{
+    $definition = json_decode(
+        file_get_contents(__DIR__ . '/report.prepdj'),
+        true, 512, JSON_THROW_ON_ERROR
+    );
+
+    return (new PrintData())
+        -&gt;setDefinition($definition)
+        -&gt;pageStart()
+        -&gt;setValue('Message', 'PrintDataで作った最初の帳票')
+        -&gt;pageEnd()
+        -&gt;toArray();
+}
+</code></pre>
+<p>保存して <code>http://127.0.0.1:19200/</code> を再読み込みします。「PrintDataで作った最初の帳票」と表示されたら成功です。上部の「PDFを保存」でも同じ文字を確認できます。通常起動では、PHPの編集後にDockerを再ビルドする必要はありません。</p>
+<p><code>Message</code>は同梱の<code>report.prepdj</code>にある動的テキストの<strong>オブジェクト名</strong>です。見た目の文字列ではなく、この名前で値の入れ先を指定します。ご自分のデザインを使う場合は、定義ファイルとオブジェクト名の両方を合わせてください。</p>
+<p><code>use</code>はクラス名を短く書くための宣言で、ファイルを読み込む処理ではありません。この例では<code>require_once</code>で実装を読み込みます。<code>router.php</code>が<code>createPrintData()</code>の戻り値をJSONにしてブラウザへ返すため、ここでは<code>header()</code>や<code>echo</code>を書きません。自作のAPIでJSONを直接返す場合は、同じクラスの<code>toJson()</code>を使用します。</p>
+<p>元の01へ戻すときは、退避した<code>quick-start.php</code>に戻します。追加した<code>PrintData.php</code>は元のコードから参照されません。</p>
+<p>呼出順は <strong>定義を設定 → ページを開始 → 値を設定 → ページを確定 → JSONを取得</strong> です。未完了のページがある状態ではPREPEJを取得できません。この制約により、途中までの帳票を誤って配信することを防ぎます。</p>
+<h2 id="4-printdata-api">4. PrintData APIリファレンス<span class="page-marker">RM007</span></h2>
+<p>配布ZIP内の実装ファイルは <code>WebAssembly/Samples/php/02.全帳票をWebでプレビュー/src/PrintData.php</code> です。各番号のサンプルにも必要なソースを置いています。次のAPI名は実装に合わせています。</p>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>setDefinition</code></td>
+<td>帳票定義（PREPDJ）を設定します。設定値は複製され、呼び出し元の変更から守られます。</td>
+</tr>
+<tr>
+<td><code>pageStart</code></td>
+<td>新しい印刷ページを開始します。別の定義を渡すと、表紙から明細などへ様式を切り替えられます。</td>
+</tr>
+<tr>
+<td><code>setValue</code></td>
+<td>名前で指定した動的オブジェクトへ値を設定します。indexは0から始まる繰返し位置です。</td>
+</tr>
+<tr>
+<td><code>setRepeatedValue</code></td>
+<td>縦横二方向に繰り返すオブジェクトへ、X・Y位置を指定して値を設定します。</td>
+</tr>
+<tr>
+<td><code>setTypedValue</code></td>
+<td>DynamicText、DynamicImage、DynamicBarcodeなど、値の種類を明示して設定します。</td>
+</tr>
+<tr>
+<td><code>setImage</code></td>
+<td>画像URLまたはdata URIを動的画像へ設定します。</td>
+</tr>
+<tr>
+<td><code>setBarcode</code></td>
+<td>バーコード／二次元コードへ渡す文字列を設定します。</td>
+</tr>
+<tr>
+<td><code>drawObject</code></td>
+<td>値を変更せず、指定したオブジェクト／繰返し位置を描画対象にします。</td>
+</tr>
+<tr>
+<td><code>changeAttributes</code></td>
+<td>位置、幅、色、フォント、配置などをページ単位で動的に変更します。</td>
+</tr>
+<tr>
+<td><code>changeRepeatedAttributes</code></td>
+<td>繰返し位置を含めて動的属性を変更します。</td>
+</tr>
+<tr>
+<td><code>pageEnd</code></td>
+<td>現在のページを確定し、印刷データへ追加します。</td>
+</tr>
+<tr>
+<td><code>toArray / toJson</code></td>
+<td>完成したPREPEJをオブジェクトまたはJSON文字列として取得します。</td>
+</tr>
+<tr>
+<td><code>save</code></td>
+<td>完成したPREPEJを一時ファイル経由で安全に保存します。</td>
+</tr>
+</tbody>
+</table>
+<h3 id="41">4.1 値とインデックス<span class="page-marker">RM008</span></h3>
+<p><strong>引数と戻り値</strong></p>
+<p><code>new PrintData()</code>は引数なしです。以下の<code>self</code>は同じPrintDataインスタンスを返す意味で、<code>-&gt;</code>で呼び出しをつなげられます。<code>$value</code>は文字列・整数・小数・真偽値・null、<code>$values</code>は属性名をキーにしたPHP配列です。</p>
+<pre><code class="language-php">setDefinition(array $definition): self
+pageStart(?array $definition = null): self
+setValue(string $name, $value, int $index = 0, bool $drawing = true): self
+setRepeatedValue(string $name, $value, int $indexX, int $indexY,
+                 bool $drawing = true): self
+setTypedValue(string $name, string $type, $value, int $index = 0,
+              bool $drawing = true): self
+setImage(string $name, string $source, int $index = 0,
+         bool $drawing = true): self
+setBarcode(string $name, string $code, int $index = 0,
+           bool $drawing = true): self
+drawObject(string $name, int $index = 0, ?string $type = null): self
+changeAttributes(string $name, array $values, int $index = 0): self
+changeRepeatedAttributes(string $name, array $values, int $index = 0,
+                         ?int $indexX = null, ?int $indexY = null,
+                         ?string $type = null): self
+pageEnd(): self
+toArray(): array
+toJson(bool $pretty = true): string
+save(string $path): void
+</code></pre>
+<p>これは引数を調べる一覧で、実行用コードではありません。<code>toArray()</code>はPHP配列、<code>toJson()</code>はUTF-8 JSON文字列です。<code>save()</code>はPHPが動いている<strong>サーバー上のファイル</strong>を保存します。利用者のPCへのダウンロードは、HTTP応答をブラウザー側で保存する別の操作です。保存先のフォルダーは先に用意し、PHP実行ユーザーへ書込権限を与えてください。</p>
+<p>呼出順の違反は<code>LogicException</code>、空の名前や負のインデックス等は<code>InvalidArgumentException</code>、保存失敗は<code>RuntimeException</code>として通知されます。HTTP APIでは例外をログへ記録し、利用者へは内部のパス等を含めないエラー応答を返します。</p>
+<p>値には文字列、数値、真偽値、nullの単純値を渡します。配列や任意オブジェクトを値として渡さず、帳票オブジェクトごとに明示的に対応付けてください。繰返しのindex、indexX、indexYは0から始まり、負数はエラーです。</p>
+<p><code>drawing=false</code>は、その繰返し位置を描画しない場合に使います。値設定はページ内のリストへ順に追加されます。同じ名前・同じ位置へ何度も設定する代わりに、アプリ側で値を確定してから一度設定すると分かりやすくなります。<code>changeRepeatedAttributes()</code>で二方向の位置を指定するときは、<code>indexX</code>と<code>indexY</code>の両方を指定します。</p>
+<p>型を省略（<code>null</code>）すると、そのページで有効な帳票定義から対応するDynamic型を推論します。型を明示した場合は指定値を優先します。定義にない名前は従来互換の<code>DynamicText</code>として記録されます。空の名前、負のindex、二方向indexの片方だけ、null属性値、非有限の数値は例外です。</p>
+<h3 id="42">4.2 ページごとに定義を切り替える<span class="page-marker">RM009</span></h3>
+<p>表紙と本文、途中から異なる一覧形式などでは、ページ開始時に別のPREPDJを渡します。座標をプログラムへ直接書くのではなく、デザイナーで完成させた定義をページへ結び付けます。定義を変更する前に現在のページを必ず確定してください。</p>
+<h2 id="5">5. 明細と改ページ<span class="page-marker">RM010</span></h2>
+<p>以下は明細処理の考え方を示す抜粋です。01の<code>Message</code>だけの定義ではなく、<code>ページ</code>・<code>品番</code>・<code>品名</code>・<code>金額</code>という名前の動的テキストを用意した帳票定義と、<code>code</code>・<code>name</code>・<code>amount</code>の列を持つ<code>$details</code>配列が必要です。そのまま試せる複数ページの実装は02の<code>src/SampleCatalog.php</code>と帳票定義を併せてご覧ください。</p>
+<pre><code class="language-php">$print = (new PrintData())-&gt;setDefinition($definition);
+foreach (array_chunk($details, 20) as $pageNo =&gt; $rows) {
+    $print-&gt;pageStart()-&gt;setValue('ページ', $pageNo + 1);
+    foreach ($rows as $rowNo =&gt; $row) {
+        $print-&gt;setValue('品番', $row['code'], $rowNo)
+              -&gt;setValue('品名', $row['name'], $rowNo)
+              -&gt;setValue('金額', number_format($row['amount']), $rowNo);
+    }
+    $print-&gt;pageEnd();
+}
+</code></pre>
+<p>1ページの行数は帳票定義と業務仕様から決めます。最終ページの空行を描画するか、明細ごとに罫線を出すかもプログラム側で明示します。ページ番号はPREPEJのページ順と、帳票へ表示する業務上のページ番号を分けて考えます。</p>
+<h2 id="6">6. 画像・バーコード・動的属性<span class="page-marker">RM011</span></h2>
+<p>次は<code>pageStart()</code>と<code>pageEnd()</code>の間で呼ぶ抜粋です。定義に<code>角印</code>（動的画像）、<code>商品QR</code>（動的バーコード）、<code>合計金額</code>（動的テキスト）を用意し、<code>$stampDataUri</code>には画像のdata URIを設定しておきます。01の定義へそのまま追加しても、対応するオブジェクトがなければ表示されません。</p>
+<pre><code class="language-php">$print-&gt;setImage('角印', $stampDataUri)
+      -&gt;setBarcode('商品QR', 'https://example.jp/items/123')
+      -&gt;changeAttributes('合計金額', [
+          'bold' =&gt; true, 'fontSize' =&gt; 16,
+          'horizontalAlignment' =&gt; 'Right'
+      ]);
+</code></pre>
+<p>画像は閲覧先でも取得できる管理下のURL、または許容サイズのdata URIにします。サーバーPDF生成では、任意の外部URLをそのまま取得するとSSRFにつながります。固定画像は許可リストまたはアプリ管理下のファイルから解決してください。</p>
+<p>動的属性では、名前・型・値を無検証のリクエストから直接渡さないでください。変更できる属性をアプリ側で限定し、数値範囲、色、配置、フォント名を検証します。</p>
+<h2 id="7">7. ブラウザへ渡して表示する<span class="page-marker">RM012</span></h2>
+<p>PHP APIはPREPEJを<code>application/json; charset=utf-8</code>で返します。ブラウザ側は共通のReports Web APIへ渡します。次は01の配信URLに合わせた表示部分の例です。自作アプリへ組み込む場合は、プレビュアーと印刷データのURLを、そのアプリの配置先へ変更してください。</p>
+<pre><code class="language-html">&lt;iframe id=&quot;reportsViewer&quot; src=&quot;/reports.web/preview/?empty=1&quot;&gt;&lt;/iframe&gt;
+&lt;script&gt;
+const viewer = document.querySelector('#reportsViewer');
+viewer.addEventListener('load', async () =&gt; {
+  const response = await fetch('/print-data');
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  await viewer.contentWindow.ReportsWeb.setPrintData(await response.json());
+});
+&lt;/script&gt;
+</code></pre>
+<p>親画面とプレビュアーは同一オリジンに置くのが最も簡単です。別オリジンで<code>postMessage</code>を使う場合は、送信元と送信先のoriginを固定し、<code>*</code>を本番環境で使わないでください。</p>
+<p>プレビュアー側では<code>setZoom("auto")</code>、ページ移動、検索、印刷、<code>exportPdf()</code>、<code>savePrintData()</code>を利用できます。独自画面へ表示面だけを組み込む場合は<code>hideAll()</code>でツール群を隠し、同じ機能を外側のボタンから呼び出します。</p>
+<h2 id="8-pdf">8. PDFを作る二つの場所<span class="page-marker">RM013</span></h2>
+<h3 id="81">8.1 ブラウザで作る<span class="page-marker">RM014</span></h3>
+<p>PREPEJを利用者のブラウザへ渡し、ブラウザ内のWASMがPDFを生成します。サーバーのPDF描画負荷を抑え、プレビューからそのまま保存・印刷する操作に向きます。機密データをブラウザへ渡してよいかは、業務の認可設計で判断します。</p>
+<h3 id="82">8.2 サーバーで作る<span class="page-marker">RM015</span></h3>
+<p>PHPから共通Node/WASMサービスへHTTPでPREPEJを送ります。 定期処理、メール添付、保存、監査、画面を開かない帳票生成に向きます。</p>
+<pre><code class="language-text">POST /render/pdf
+Content-Type: application/json
+
+&lt;PREPEJ JSON&gt;
+</code></pre>
+<p>成功時は<code>application/pdf</code>を返します。入力・出力サイズ、同時実行数、処理時間を制限し、失敗時の途中PDFを保存・配信しないでください。ブラウザ生成とサーバー生成は同じPREPEJを入力にするため、業務データ組立てを二重実装する必要はありません。</p>
+<h2 id="9-prepej">9. PREPEJを保存・再利用する<span class="page-marker">RM016</span></h2>
+<p><code>save</code>は完成したPREPEJをUTF-8 JSONとして保存します。保存前にページをすべて確定してください。ファイル名には<code>.prepej</code>を使い、アップロード時には拡張子だけで信用せず、Format、Version、Definition、Pages、サイズ、ページ数を検証します。</p>
+<p>保存した文書は、Webプレビュアーの「開く」またはドラッグ＆ドロップで再表示できます。HTTPで受け渡す場合もファイルと同じJSONです。再印刷の証跡として保管する場合は、業務データの保持期間、暗号化、アクセス権、削除規則を定めます。</p>
+<h2 id="10-web-api">10. Web APIとデータベース<span class="page-marker">RM017</span></h2>
+<p>DB列と帳票オブジェクト名はコードで明示的に対応付けます。SQLはプレースホルダーを使い、利用者が参照できる伝票かを取得前に確認します。日付、通貨、端数処理は帳票へ渡す前に業務規則で確定します。</p>
+<p>機密帳票のレスポンスには<code>Cache-Control: no-store</code>を設定します。内部例外、接続文字列、ファイルパスを利用者へ返さず、要求IDを安全なサーバーログへ残します。帳票定義や画像は可能なら公開ルート外へ置きます。</p>
+<h2 id="11">11. テストとリリース確認<span class="page-marker">RM018</span></h2>
+<p>配布サンプルの確認は、各READMEの起動・ソース変更・PDF保存・終了の順で行えます。01では第3章のコードを試し、02では明細と改ページ、03では別アプリとの受け渡しを確認してください。開発用リポジトリだけにあるテストファイルを、配布ZIPに存在する前提では扱いません。</p>
+<p>最低限、次を確認します。</p>
+<ul>
+<li>Formatが<code>Reports.net PrintData</code>、Versionが<code>1.0</code>である</li>
+<li>PREPDJを設定せずにページを開始するとエラーになる</li>
+<li>ページを閉じずに次のページを開始できない</li>
+<li>日本語、改行、数値、真偽値、nullが壊れない</li>
+<li>明細の先頭・最終行、改ページ前後に欠落や重複がない</li>
+<li>ページ途中の帳票定義切替が、完了済みページを変更しない</li>
+<li>画像・角印、バーコード、動的属性がSVGとPDFへ反映される</li>
+<li>保存したPREPEJを開き直すと同じページ・内容になる</li>
+<li>ブラウザ生成とサーバー生成のページ数・主要表示が一致する</li>
+</ul>
+<p>ラッパー変更時はWASM描画エンジン全体を毎回再試験するのではなく、生成PREPEJが共通仕様と基準サンプルに一致することを中心に確認します。WASM、プレビュアー、フォント、画像処理を変更した場合は、別途描画回帰試験が必要です。</p>
+<h2 id="12_1">12. よくある問題<span class="page-marker">RM019</span></h2>
+<table>
+<thead>
+<tr>
+<th>症状</th>
+<th>確認すること</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>帳票が空になる</td>
+<td>PREPDJ上のオブジェクト名と<code>setValue</code>の名前、indexを確認します。</td>
+</tr>
+<tr>
+<td>2ページ目がない</td>
+<td>ページごとにpage start／page endが対になっているか確認します。</td>
+</tr>
+<tr>
+<td>画像が×になる</td>
+<td>URLの到達性、data URI、CORS、サーバー側許可リストを確認します。</td>
+</tr>
+<tr>
+<td>日本語が欠ける</td>
+<td>配置したフォント、フォントマップ、WASMとWeb資源の版を確認します。</td>
+</tr>
+<tr>
+<td>WASMが読み込めない</td>
+<td><code>.wasm</code>のURL、<code>application/wasm</code>、キャッシュ、同一リリースのJSを確認します。</td>
+</tr>
+<tr>
+<td>PDFだけ失敗する</td>
+<td>入力サイズ、画像サイズ、タイムアウト、同時実行制限、サーバーログの要求IDを確認します。</td>
+</tr>
+</tbody>
+</table>
+<h2 id="13_1">13. 配置・更新・ライセンス<span class="page-marker">RM020</span></h2>
+<p>ラッパー、プレビュアー、JavaScript／TypeScript、CSS、WASMは同じReports.web配布版から取り出してください。HTMLだけ、またはラッパーだけを別バージョンへ差し替えると、PREPEJや公開APIの互換性を判断できなくなります。</p>
+<p>現行の製品版への切替は、購入者のメールアドレスを含む電子署名付きの <code>reports-web.license</code> を、実際に帳票を出力する側へ配置して行います。購入者ごとにWASMを差し替える手順ではありません。ブラウザーとサーバーでは配置先が異なるため、<a href="../../../../Manual/Product-License.html">製品版を使い始める</a>に従ってください。ライセンスファイルを公開サンプルやソース管理へ混入させないでください。正式な動作環境、使用許諾、更新履歴、問い合わせ先は共通製品マニュアルを正本とします。開発ライセンスは開発用PC 1台につき1ライセンスです。</p></section></main></body></html>

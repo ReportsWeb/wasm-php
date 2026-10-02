@@ -1,0 +1,4 @@
+vendor/
+.reports-web-package/
+composer.lock
+.env
