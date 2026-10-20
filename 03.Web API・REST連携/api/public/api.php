@@ -1,11 +1,9 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . "/vendor/autoload.php";
+require_once dirname(__DIR__) . "/src/PrintData.php";
 require_once dirname(__DIR__) . "/src/SampleCatalog.php";
 
-use Pao\Reports\Web\ReportsWebEngine;
-use Pao\Reports\Web\ReportsWebEngineException;
 use Pao\Reports\Web\SampleCatalog;
 
 header("Cache-Control: no-store");
@@ -105,7 +103,16 @@ try {
         throw new InvalidArgumentException("未対応の操作です。");
     }
     if ($action === "server-pdf" && $_SERVER["REQUEST_METHOD"] === "POST") {
-        $raw = file_get_contents("php://input");
+        // Bound the raw body before JSON decoding, including chunked requests.
+        $maxBodyBytes = 64 * 1024 * 1024;
+        if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > $maxBodyBytes) {
+            throw new RuntimeException('印刷データは64MiB以内にしてください。', 413);
+        }
+        $raw = file_get_contents('php://input', false, null, 0, $maxBodyBytes + 1);
+        if ($raw === false) throw new RuntimeException('要求の本文を読めませんでした。', 400);
+        if (strlen($raw) > $maxBodyBytes) {
+            throw new RuntimeException('印刷データは64MiB以内にしてください。', 413);
+        }
         $submitted = json_decode((string) $raw, true, 512, JSON_THROW_ON_ERROR);
         if (
             !is_array($submitted) ||
@@ -161,18 +168,53 @@ try {
             $value = "data:" . $mime . ";base64," . base64_encode($bytes);
         };
         $inlineAssets($submitted);
+        $engineUrl =
+            rtrim(
+                (string) (getenv("REPORTS_ENGINE_URL") ?:
+                "http://127.0.0.1:3107"),
+                "/",
+            ) . "/render/pdf";
+        $context = stream_context_create([
+            "http" => [
+                "method" => "POST",
+                "header" =>
+                    "Content-Type: application/json\r\nConnection: close\r\n",
+                "content" => json_encode(
+                    $submitted,
+                    JSON_THROW_ON_ERROR |
+                        JSON_UNESCAPED_UNICODE |
+                        JSON_UNESCAPED_SLASHES,
+                ),
+                "timeout" => 90,
+                "ignore_errors" => true,
+            ],
+        ]);
+        set_error_handler(static function (int $severity, string $message): never {
+            throw new RuntimeException("帳票エンジンに接続できませんでした。", 502);
+        });
         try {
-            // paoatoffice/reports-web: POST /render/pdf to the Reports.Web engine.
-            $pdf = (new ReportsWebEngine(
-                (string) (getenv("REPORTS_ENGINE_URL") ?: "http://127.0.0.1:3107"),
-            ))->renderPdf($submitted);
-        } catch (ReportsWebEngineException $e) {
-            throw new RuntimeException(
-                "サーバーWASMエンジンでPDFを作成できませんでした。 " . $e->getMessage(),
-            );
+            $pdf = file_get_contents($engineUrl, false, $context);
+        } finally {
+            restore_error_handler();
+        }
+        $statusLine = $http_response_header[0] ?? "";
+        $engineStatus = preg_match('~^HTTP/\S+\s+(\d{3})(?:\s|$)~', $statusLine, $matches) ? (int)$matches[1] : 0;
+        if ($pdf !== false && $engineStatus >= 400 && $engineStatus < 500) {
+            // The engine supplies public validation errors; preserve its status and JSON.
+            http_response_code($engineStatus);
+            header('Content-Type: application/json; charset=utf-8');
+            echo $pdf;
+            exit;
+        }
+        if ($pdf === false || $engineStatus !== 200) {
+            // Never expose upstream 5xx bodies, URLs or transport diagnostics.
+            throw new RuntimeException('サーバーWASMエンジンでPDFを作成できませんでした。', 502);
         }
         if (!str_starts_with($pdf, "%PDF-")) {
             throw new RuntimeException("PDF以外の応答が返りました。", 502);
+        }
+        foreach ($http_response_header ?? [] as $line) {
+            if (stripos($line, "X-Reports-Image-Diagnostics:") === 0) header($line);
         }
         header("Content-Type: application/pdf");
         header(
@@ -224,7 +266,7 @@ try {
         JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
     );
 } catch (Throwable $error) {
-    http_response_code($error instanceof InvalidArgumentException || $error instanceof JsonException ? 400 : ($error->getCode() === 502 ? 502 : 500));
+    http_response_code($error instanceof InvalidArgumentException || $error instanceof JsonException ? 400 : (in_array($error->getCode(), [400, 413, 502, 503], true) ? $error->getCode() : 500));
     header("Content-Type: application/json; charset=utf-8");
     echo json_encode(
         ["error" => $error instanceof JsonException ? "要求の本文をJSONとして読めません。JSON形式を確認してください。" : $error->getMessage()],
