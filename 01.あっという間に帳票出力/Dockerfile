@@ -1,4 +1,6 @@
 FROM php:8.3-cli-bookworm
+# 印刷データの上限は 4 つのサーバーと各言語のサンプルで同じ 64MiB（2026-10-13 決定）。PHP の既定（8M）では受け取れない。
+RUN printf 'post_max_size=65M\nmemory_limit=768M\n' > /usr/local/etc/php/conf.d/reports-limits.ini
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git unzip \
  && rm -rf /var/lib/apt/lists/* \

@@ -47,9 +47,10 @@ try {
             }
             // Keep saved print data portable: include the image, not a server URL.
             $imageFile = dirname(__DIR__) . "/resources/images/" . $assets[$name];
-            $mime = str_ends_with($assets[$name], ".png") ? "image/png" : "image/jpeg";
-            $object["ImagePath"] = "data:" . $mime . ";base64," . base64_encode(file_get_contents($imageFile));
-            $object["ImageDataBase64"] = "";
+            // B18: embedded bytes go to ImageDataBase64. A data: URI in ImagePath made the
+            // Pure Java SDK refuse the PREPEJ and WPF throw PathTooLongException.
+            $object["ImagePath"] = "";
+            $object["ImageDataBase64"] = base64_encode(file_get_contents($imageFile));
         }
         unset($object);
         return $definition;
@@ -170,6 +171,9 @@ try {
                 "サーバーWASMエンジンでPDFを作成できませんでした。 " . $e->getMessage(),
             );
         }
+        if (!str_starts_with($pdf, "%PDF-")) {
+            throw new RuntimeException("PDF以外の応答が返りました。", 502);
+        }
         header("Content-Type: application/pdf");
         header(
             'Content-Disposition: inline; filename="' .
@@ -220,10 +224,10 @@ try {
         JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
     );
 } catch (Throwable $error) {
-    http_response_code($error instanceof InvalidArgumentException ? 400 : 500);
+    http_response_code($error instanceof InvalidArgumentException || $error instanceof JsonException ? 400 : ($error->getCode() === 502 ? 502 : 500));
     header("Content-Type: application/json; charset=utf-8");
     echo json_encode(
-        ["error" => $error->getMessage()],
+        ["error" => $error instanceof JsonException ? "要求の本文をJSONとして読めません。JSON形式を確認してください。" : $error->getMessage()],
         JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
     );
 }

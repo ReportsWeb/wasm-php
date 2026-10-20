@@ -81,6 +81,16 @@ final class SampleCatalog
         if ($sample === "quick-start") {
             $p->setValue("Text2", "Webブラウザで作った\n印刷データです。");
         }
+        // 名刺は 5 段。繰返しの物体は、何も書かないと 1 段目にしか描かない（原本と同じ、D-37）。
+        // 各段に定義の文字をそのまま書く。
+        if ($sample === "business-card") {
+            foreach (self::definition($sample)["Objects"] as $o) {
+                $count = $o["RepeatCount"] ?? ($o["Repeat"] ?? 0);
+                for ($i = 0; $i < $count; $i++) {
+                    $p->setValue($o["Name"], $o["Text"] ?? "", $i);
+                }
+            }
+        }
         return $p->pageEnd();
     }
     private static function multiples(): PrintData
@@ -102,7 +112,7 @@ final class SampleCatalog
                 $i = ($page - 1) * 15 + $line + 1;
                 $p->setValue("行番号", (string) $i, $line)
                     ->setValue("10倍数", (string) ($i * 10), $line)
-                    ->setValue("横線", "", $line);
+                    ->drawObject("横線", $line); // 罫線は値を書かずに描く（"" を書くと描かない。原本と同じ、D-33）
                 // 100で割り切れる値だけ、この行の文字色を青にする。
                 if (($i * 10) % 100 === 0) $p->changeAttributes("10倍数", ["foreground" => "#FF0000FF"], $line);
             }
@@ -126,9 +136,9 @@ final class SampleCatalog
                 $p->setValue("郵便番号", $v[0] ?? "", $i)
                     ->setValue("市区町村", $v[1] ?? "", $i)
                     ->setValue("住所", $v[2] ?? "", $i)
-                    ->setValue("横罫線", "", $i);
+                    ->drawObject("横罫線", $i);
                 if ($page >= 5 && $i % 2 === 1) {
-                    $p->setValue("網掛け", "", $i);
+                    $p->drawObject("網掛け", $i);
                 }
             }
             if ($chunk && $page < 5) {
@@ -182,10 +192,13 @@ final class SampleCatalog
                         "数量青",
                         "単価青",
                         "金額青",
+                        // 品名青・単価青と同じ位置の帯。何も書かないと 1 行目にしか描かない（D-37）。
+                        "Square5",
+                        "Square10",
                     ]
                     as $name
                 ) {
-                    $p->setValue($name, "", $i);
+                    $p->drawObject($name, $i); // 白・青の帯（四角形）。"" を書くと描かない（D-33）
                 }
             }
             foreach ($matching as $i => $r) {
@@ -232,7 +245,7 @@ final class SampleCatalog
                 $nextX = $x + $w;
             }
             for ($i = 0; $i < $maxH; $i++) {
-                $p->setValue("hLine", "", $i)->setValue("LineRect", "", $i);
+                $p->drawObject("hLine", $i)->drawObject("LineRect", $i); // 罫線・背景は値を書かずに描く（D-33）
                 if ($i === 0) {
                     $p->changeAttributes(
                         "hLine",
@@ -292,7 +305,7 @@ final class SampleCatalog
                 }
             }
             for ($j = 0; $j <= $maxV; $j++) {
-                $p->setValue("vLine", "", $j)->changeAttributes(
+                $p->drawObject("vLine", $j)->changeAttributes(
                     "vLine",
                     ["x" => $j < $maxV ? $columnX[$j] : $nextX],
                     $j,
@@ -311,14 +324,17 @@ final class SampleCatalog
             }
             $total = 0;
             foreach ($matching as $i => $r) {
-                $amount = (int) $r["数量"] * (int) $r["単価"];
-                $total += $amount;
+                $amount = self::invoiceInteger($r["数量"]) * self::invoiceInteger($r["単価"]);
+                if (!is_int($amount)) throw new \OverflowException('Invoice amount overflow');
+                $nextTotal = $total + $amount;
+                if (!is_int($nextTotal)) throw new \OverflowException('Invoice total overflow');
+                $total = $nextTotal;
                 $row = $i + 1;
                 $p->setValue("field1", $r["品番"], $row)
                     ->setValue("field2", $r["品名"], $row)
                     ->setValue("field3", $r["数量"], $row)
-                    ->setValue("field4", self::number($r["単価"]), $row)
-                    ->setValue("field5", self::number($amount), $row);
+                    ->setValue("field4", self::invoiceNumber($r["単価"]), $row)
+                    ->setValue("field5", self::invoiceNumber($amount), $row);
             }
             $tax = $total * 0.05;
             foreach (
@@ -330,7 +346,7 @@ final class SampleCatalog
                 as [$row, $label, $amount]
             ) {
                 $p->setValue("field4", $label, $row)
-                    ->setValue("field5", self::number($amount), $row)
+                    ->setValue("field5", self::invoiceNumber($amount), $row)
                     ->changeAttributes(
                         "field4",
                         [
@@ -341,18 +357,36 @@ final class SampleCatalog
                         $row,
                     );
             }
-            $p->setValue("txtTotal", self::number($total + $tax))
+            $p->setValue("txtTotal", self::invoiceNumber($total + $tax))
                 ->changeAttributes(
                     "hLine",
                     ["strokeStyle" => "Double"],
                     $maxH - 3,
                 )
-                ->setValue("hLine", "", $maxH)
+                ->drawObject("hLine", $maxH)
                 ->changeAttributes("hLine", ["borderWidth" => 0.5 * $px], $maxH)
                 ->pageEnd();
         }
         return $p;
     }
+
+    // Reports.NET invoice: ToInt64 rounds operands to even; N0 only formats the result.
+    private static function invoiceValue(mixed $value): float {
+        if (!is_numeric($value) || !is_finite((float)$value)) throw new \InvalidArgumentException('Invalid invoice numeric value');
+        return (float)$value;
+    }
+    private static function invoiceInteger(mixed $value): int {
+        $n = round(self::invoiceValue($value), 0, PHP_ROUND_HALF_EVEN);
+        if ($n < -9223372036854775808.0 || $n >= 9223372036854775808.0) throw new \OverflowException('Invoice Int64 overflow');
+        return (int)$n;
+    }
+    private static function invoiceNumber(mixed $value): string {
+        $n = self::invoiceValue($value);
+        $rounded = round($n, 0, PHP_ROUND_HALF_EVEN);
+        if ($rounded < -9223372036854775808.0 || $rounded >= 9223372036854775808.0) throw new \OverflowException('Invoice display overflow');
+        return ($n < 0 && $rounded == 0 ? '-' : '') . number_format($rounded, 0, '.', ',');
+    }
+
     private static function products(?PDO $pdo): PrintData
     {
         $big = [];
@@ -365,25 +399,27 @@ final class SampleCatalog
                 $r["小分類名称"];
         }
         $stream = [];
-        $prevBig = $prevSmall = null;
+        $prevBig = $prevSmall = $prevBigName = $prevSmallName = null;
         $bigCount = $smallCount = 0;
         foreach (self::rows($pdo, "products", 3) as $r) {
-            $bn = $big[(string) $r["大分類コード"]] ?? "";
-            $sn = $small[$r["大分類コード"] . ":" . $r["小分類コード"]] ?? "";
-            if ($prevSmall !== null && $prevSmall !== $sn) {
+            $bigKey = (string) $r["大分類コード"];
+            $smallKey = $bigKey . ":" . $r["小分類コード"];
+            $bn = $big[$bigKey] ?? "";
+            $sn = $small[$smallKey] ?? "";
+            if ($prevSmall !== null && $prevSmall !== $smallKey) {
                 $stream[] = [
                     "大分類" => "",
-                    "小分類" => "小分類({$prevSmall})小計",
+                    "小分類" => "小分類({$prevSmallName})小計",
                     "品番" => $smallCount . " 冊",
                     "品名" => "",
                     "kind" => "small",
                 ];
                 $smallCount = 0;
             }
-            if ($prevBig !== null && $prevBig !== $bn) {
+            if ($prevBig !== null && $prevBig !== $bigKey) {
                 $stream[] = [
                     "大分類" => "",
-                    "小分類" => "大分類({$prevBig})小計",
+                    "小分類" => "大分類({$prevBigName})小計",
                     "品番" => $bigCount . " 冊",
                     "品名" => "",
                     "kind" => "big",
@@ -391,21 +427,23 @@ final class SampleCatalog
                 $bigCount = 0;
             }
             $stream[] = [
-                "大分類" => $prevBig !== $bn ? $bn : "",
-                "小分類" => $prevSmall !== $sn ? $sn : "",
+                "大分類" => $prevBig !== $bigKey ? $bn : "",
+                "小分類" => $prevSmall !== $smallKey ? $sn : "",
                 "品番" => $r["品番"],
                 "品名" => $r["品名"],
                 "kind" => "detail",
             ];
-            $prevBig = $bn;
-            $prevSmall = $sn;
+            $prevBig = $bigKey;
+            $prevSmall = $smallKey;
+            $prevBigName = $bn;
+            $prevSmallName = $sn;
             $bigCount++;
             $smallCount++;
         }
         if ($prevSmall !== null) {
             $stream[] = [
                 "大分類" => "",
-                "小分類" => "小分類({$prevSmall})小計",
+                "小分類" => "小分類({$prevSmallName})小計",
                 "品番" => $smallCount . " 冊",
                 "品名" => "",
                 "kind" => "small",
@@ -414,7 +452,7 @@ final class SampleCatalog
         if ($prevBig !== null) {
             $stream[] = [
                 "大分類" => "",
-                "小分類" => "大分類({$prevBig})小計",
+                "小分類" => "大分類({$prevBigName})小計",
                 "品番" => $bigCount . " 冊",
                 "品名" => "",
                 "kind" => "big",
@@ -431,7 +469,7 @@ final class SampleCatalog
                     ["枠_大分類", "枠_小分類", "枠_品番", "枠_品名"]
                     as $n
                 ) {
-                    $p->setValue($n, "", $i);
+                    $p->drawObject($n, $i); // 枠（四角形）。"" を書くと描かない（D-33）
                     if ($r["kind"] !== "detail") {
                         $p->changeAttributes(
                             $n,
