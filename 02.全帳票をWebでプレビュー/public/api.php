@@ -1,10 +1,12 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . "/src/PrintData.php";
+require_once dirname(__DIR__) . "/vendor/autoload.php";
 require_once dirname(__DIR__) . "/src/SampleCatalog.php";
 
 use Pao\Reports\Web\SampleCatalog;
+use Pao\Reports\Web\ReportsWebEngine;
+use Pao\Reports\Web\ReportsWebEngineException;
 
 header("Cache-Control: no-store");
 header("X-Content-Type-Options: nosniff");
@@ -20,9 +22,8 @@ try {
     $script = (string) ($_SERVER["SCRIPT_NAME"] ?? "/api.php");
     $assetBase = $scheme . "://" . $host . $script . "?action=asset&name=";
     putenv("REPORTS_PUBLIC_ASSET_BASE=" . $assetBase);
-    $externalizeDefinitionImages = static function (array $definition) use (
+    $inlineDefinitionImages = static function (array $definition) use (
         $sample,
-        $assetBase,
     ): array {
         $assets = match ($sample) {
             "estimate" => [
@@ -45,9 +46,10 @@ try {
             }
             // Keep saved print data portable: include the image, not a server URL.
             $imageFile = dirname(__DIR__) . "/resources/images/" . $assets[$name];
-            $mime = str_ends_with($assets[$name], ".png") ? "image/png" : "image/jpeg";
-            $object["ImagePath"] = "data:" . $mime . ";base64," . base64_encode(file_get_contents($imageFile));
-            $object["ImageDataBase64"] = "";
+            $bytes = file_get_contents($imageFile);
+            if ($bytes === false) throw new RuntimeException("Sample image asset is missing: " . $assets[$name]);
+            $object["ImagePath"] = "";
+            $object["ImageDataBase64"] = base64_encode($bytes);
         }
         unset($object);
         return $definition;
@@ -93,7 +95,7 @@ try {
             'Content-Disposition: inline; filename="' . $sample . '.prepdj"',
         );
         echo json_encode(
-            $externalizeDefinitionImages(SampleCatalog::definition($sample)),
+            $inlineDefinitionImages(SampleCatalog::definition($sample)),
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT,
         );
         exit();
@@ -167,53 +169,10 @@ try {
             $value = "data:" . $mime . ";base64," . base64_encode($bytes);
         };
         $inlineAssets($submitted);
-        $engineUrl =
-            rtrim(
-                (string) (getenv("REPORTS_ENGINE_URL") ?:
-                "http://127.0.0.1:3107"),
-                "/",
-            ) . "/render/pdf";
-        $context = stream_context_create([
-            "http" => [
-                "method" => "POST",
-                "header" =>
-                    "Content-Type: application/json\r\nConnection: close\r\n",
-                "content" => json_encode(
-                    $submitted,
-                    JSON_THROW_ON_ERROR |
-                        JSON_UNESCAPED_UNICODE |
-                        JSON_UNESCAPED_SLASHES,
-                ),
-                "timeout" => 90,
-                "ignore_errors" => true,
-            ],
-        ]);
-        set_error_handler(static function (int $severity, string $message): never {
-            throw new RuntimeException("帳票エンジンに接続できませんでした。", 502);
-        });
         try {
-            $pdf = file_get_contents($engineUrl, false, $context);
-        } finally {
-            restore_error_handler();
-        }
-        $statusLine = $http_response_header[0] ?? "";
-        $engineStatus = preg_match('~^HTTP/\S+\s+(\d{3})(?:\s|$)~', $statusLine, $matches) ? (int)$matches[1] : 0;
-        if ($pdf !== false && $engineStatus >= 400 && $engineStatus < 500) {
-            // The engine supplies public validation errors; preserve its status and JSON.
-            http_response_code($engineStatus);
-            header('Content-Type: application/json; charset=utf-8');
-            echo $pdf;
-            exit;
-        }
-        if ($pdf === false || $engineStatus !== 200) {
-            // Never expose upstream 5xx bodies, URLs or transport diagnostics.
-            throw new RuntimeException('サーバーWASMエンジンでPDFを作成できませんでした。', 502);
-        }
-        if (!str_starts_with($pdf, "%PDF-")) {
-            throw new RuntimeException("PDF以外の応答が返りました。", 502);
-        }
-        foreach ($http_response_header ?? [] as $line) {
-            if (stripos($line, "X-Reports-Image-Diagnostics:") === 0) header($line);
+            $pdf = (new ReportsWebEngine((string)(getenv("REPORTS_ENGINE_URL") ?: "http://127.0.0.1:3107")))->renderPdf($submitted);
+        } catch (ReportsWebEngineException $error) {
+            throw new RuntimeException("サーバーでPDFを作成できませんでした。", 502);
         }
         header("Content-Type: application/pdf");
         header(
@@ -241,9 +200,10 @@ try {
     if (!isset($payload["Pages"]) || !is_array($payload["Pages"])) {
         throw new RuntimeException("印刷データにページがありません。");
     }
+    if (isset($payload['Definition']) && is_array($payload['Definition'])) $payload['Definition'] = $inlineDefinitionImages($payload['Definition']);
     foreach ($payload["Pages"] as &$page) {
         if (isset($page["Definition"]) && is_array($page["Definition"])) {
-            $page["Definition"] = $externalizeDefinitionImages(
+            $page["Definition"] = $inlineDefinitionImages(
                 $page["Definition"],
             );
         }

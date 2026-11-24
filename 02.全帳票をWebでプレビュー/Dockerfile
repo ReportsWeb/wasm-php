@@ -6,6 +6,8 @@ RUN apt-get update \
  && docker-php-ext-install pdo_pgsql \
  && pecl install xdebug-3.4.7 && docker-php-ext-enable xdebug \
  && rm -rf /var/lib/apt/lists/*
+# 他言語サンプルと同じ瞬間を日本時間で帳票へ書く（UTC の前日にならないようにする）。
+RUN printf 'date.timezone=Asia/Tokyo\n' > /usr/local/etc/php/conf.d/reports-timezone.ini
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY xdebug.ini /usr/local/etc/php/conf.d/99-sample-debug.ini
 WORKDIR /opt/reports/php

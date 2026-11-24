@@ -70,6 +70,7 @@ $designerUrl = $isPublishedPhp
     $label,
 ) ?></option><?php endforeach; ?></select>
         <button id="toggleToolbar" class="action" style="margin-top:8px" type="button" disabled>ツールバーを非表示</button>
+        <p class="hint designer-note" style="margin:8px 0 0">「デザイナーで開く」：デザイナーには帳票の枠だけが入っています。各行の値はプログラムが入れます。そのため、デザイナーのプレビューでは見出しの行が繰り返して見えます。</p>
       </section>
       <section class="group pdf-group" aria-labelledby="pdfHeading">
         <div class="group-heading"><strong id="pdfHeading">PDFの生成</strong><span id="pdfHint" class="hint">別タブで表示します</span></div>
