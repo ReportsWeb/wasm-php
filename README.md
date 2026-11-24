@@ -68,6 +68,8 @@ docker compose up -d --build --wait --wait-timeout 180
 docker compose down --volumes   # 終わったら停止・削除
 ```
 
+Dockerを使わずに動かしたいときは、製品サイト（https://www.pao.ac/reports.web/）の体験版「WASM・7 言語セット」のZIPに入っている同じサンプルをお使いください。GitHubのこのリポジトリには、サンプルが使う帳票エンジンとデザイナー・プレビュー画面のファイル（Runtime）が入っていないため、ここではDockerで動かします。
+
 各サンプルは、Docker イメージを作るときに Composer でこのパッケージを取り込みます。帳票エンジンのイメージを起動し、同じイメージからデザイナー・プレビュー画面のファイルを取り出して使います。
 
 ## 体験版と製品版
@@ -93,6 +95,8 @@ docker compose down --volumes   # 終わったら停止・削除
 composer require paoatoffice/reports-web
 docker run -d -p 3107:3107 ghcr.io/reportsweb/engine:1.3.0
 ```
+
+Without Docker: this repository does not include the runtime (engine, designer and previewer files) that the samples need. Use the same samples in the trial ZIP "WASM・7 言語セット" (Reports-Web-WASM.zip) from https://www.pao.ac/reports.web/, which includes the runtime.
 
 `PrintData` builds the print data; `ReportsWebEngine::renderPdf()` returns the PDF bytes (PHP 8.1+, no curl needed). The package and the engine are trial builds: output carries a red "SAMPLE" mark until a purchased license file is configured. Package: Reports.Web license. Sample code: MIT.
 
