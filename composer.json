@@ -2,7 +2,7 @@
     "name": "paoatoffice/reports-web",
     "description": "Reports.Web for PHP: build PREPEJ print data from report definitions (.prepdj) and render PDF with the Reports.Web engine (C++ WebAssembly). Japanese business forms such as invoices, estimates and labels. Trial build.",
     "type": "library",
-    "keywords": ["reports", "report", "pdf", "pdf-generation", "report-designer", "invoice", "estimate", "label", "business-forms", "webassembly", "wasm", "prepej", "prepdj", "japanese", "帳票", "Reports.Web", "Reports.net"],
+    "keywords": ["reports", "report", "pdf", "pdf-generation", "report-designer", "invoice", "estimate", "label", "business-forms", "webassembly", "wasm", "prepej", "prepdj", "japanese", "帳票", "Reports.Web", "Reports Web"],
     "homepage": "https://www.pao.ac/reports.web/",
     "license": "proprietary",
     "authors": [

@@ -59,7 +59,7 @@ final class PrintData
 
     public function changeRepeatedAttributes(string $name, array $values, int $index = 0, ?int $indexX = null, ?int $indexY = null, ?string $type = null): self
     {
-        $page =& $this->requirePage(); $normalized = [];
+        $page =& $this->requirePage(); $this->requireObject($name); $normalized = [];
         foreach ($values as $key => $value) {
             if (!is_scalar($value)) throw new \InvalidArgumentException('属性値は単純値でなければなりません。');
             $normalized[(string)$key] = self::scalarText($value);
@@ -91,20 +91,35 @@ final class PrintData
     public function toJson(bool $pretty = true): string
     { return json_encode($this->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | ($pretty ? JSON_PRETTY_PRINT : 0)) . "\n"; }
 
+    private static function requireWritable(string $path): void
+    {
+        clearstatcache(true, $path);
+        if (!is_file($path)) return;
+        $message = '読み取り専用のため保存できません。別名で保存してください。';
+        if (!is_writable($path) || (fileperms($path) & 0222) === 0) throw new \RuntimeException($message);
+        $probe = @fopen($path, 'r+b');
+        if ($probe === false) throw new \RuntimeException($message);
+        fclose($probe);
+    }
+
     public function save(string $path): void
     {
+        self::requireWritable($path);
         $directory = dirname($path);
         if (!is_dir($directory) || !is_writable($directory)) throw new \RuntimeException("保存先へ書き込めません: {$directory}");
         $temporary = tempnam($directory, '.prepej-');
         if ($temporary === false) throw new \RuntimeException('一時ファイルを作成できません。');
         try {
-            if (file_put_contents($temporary, $this->toJson(), LOCK_EX) === false || !rename($temporary, $path)) throw new \RuntimeException("保存できません: {$path}");
+            if (file_put_contents($temporary, $this->toJson(), LOCK_EX) === false) throw new \RuntimeException("一時ファイルへ保存できません。");
+            self::requireWritable($path);
+            if (!rename($temporary, $path)) throw new \RuntimeException("保存できません: {$path}");
         } finally { if (is_file($temporary)) @unlink($temporary); }
     }
 
     private function addValue(string $name, string|int|float|bool|null $value, int $index, ?int $indexX, ?int $indexY, bool $drawing, ?string $type = null): self
     {
         $page =& $this->requirePage();
+        $this->requireObject($name);
         $item = ['Name' => self::requiredName($name), 'Type' => $this->resolveType($name, $type), 'Index' => self::nonNegative($index, 'index'), 'Drawing' => $drawing, 'Value' => $value === null ? null : self::scalarText($value)];
         if ($indexX !== null || $indexY !== null) {
             if ($indexX === null || $indexY === null) throw new \InvalidArgumentException('indexXとindexYは両方指定してください。');
@@ -118,14 +133,7 @@ final class PrintData
     private function resolveType(string $name, ?string $explicit): string
     {
         if ($explicit !== null) return self::requiredName($explicit);
-        $page = $this->requirePage();
-        $definition = $page['Definition'] ?? $this->definition;
-        $objects = $definition['Objects'] ?? [];
-        if (isset($definition['pages'])) {
-            foreach ($definition['pages'] as $sourcePage) {
-                foreach ($sourcePage['objects'] ?? [] as $object) $objects[] = $object;
-            }
-        }
+        $objects = $this->pageObjects();
         $kinds = ['Text','Line','Square','Circle','Image','Barcode'];
         $webKinds = ['text'=>'Text','line'=>'Line','rectangle'=>'Square','ellipse'=>'Circle','image'=>'Image','barcode'=>'Barcode'];
         foreach ($objects as $object) {
@@ -139,6 +147,29 @@ final class PrintData
         }
         // 未登録の名前を許す従来APIとの互換性。明示した型は変更しない。
         return 'DynamicText';
+    }
+
+    private function pageObjects(): array
+    {
+        $page = $this->requirePage();
+        $definition = $page['Definition'] ?? $this->definition;
+        $objects = $definition['Objects'] ?? [];
+        if (isset($definition['pages'])) {
+            foreach ($definition['pages'] as $sourcePage) {
+                foreach ($sourcePage['objects'] ?? [] as $object) $objects[] = $object;
+            }
+        }
+        return $objects;
+    }
+
+    /** OP-R3-WRAP：Reports.net の Write と同じく、帳票に無い名前はその場で断る（TypeScript/Node.js 版と同じ）。以前は黙って受け、値は帳票に出なかった。 */
+    private function requireObject(string $name): void
+    {
+        $wanted = self::requiredName($name);
+        foreach ($this->pageObjects() as $object) {
+            if (($object['Name'] ?? $object['name'] ?? null) === $wanted) return;
+        }
+        throw new \InvalidArgumentException("帳票にオブジェクト「{$name}」がありません。");
     }
 
     private function &requirePage(): array
@@ -158,6 +189,32 @@ final class PrintData
     private static function scalarText(string|int|float|bool $value): string
     {
         if (is_float($value) && !is_finite($value)) throw new \InvalidArgumentException('数値には有限値を指定してください。');
+        if (is_float($value)) return self::jsNumber($value);
         return is_bool($value) ? ($value ? 'true' : 'false') : (string)$value;
+    }
+
+    /**
+     * OP-R3-WRAP：小数は TypeScript/Node.js 版（JavaScript の数の文字列）と同じ書き方にする。
+     * 以前は (string) の 14 桁で 0.30000000000000004 が 0.3、1e21 が 1.0E+21 になった。var_export は最短で元に戻る桁を返す。
+     */
+    private static function jsNumber(float $value): string
+    {
+        if ($value == 0.0) return '0';
+        $text = var_export($value, true);
+        $negative = $text[0] === '-';
+        if ($negative) $text = substr($text, 1);
+        $exponent = 0;
+        if (preg_match('/^([0-9.]+)[eE]([+-]?\d+)$/', $text, $m)) { $text = $m[1]; $exponent = (int)$m[2]; }
+        $parts = explode('.', $text, 2);
+        $integer = $parts[0]; $all = $integer . ($parts[1] ?? '');
+        $lead = strlen($all) - strlen(ltrim($all, '0'));
+        $digits = rtrim(substr($all, $lead), '0');
+        if ($digits === '') return '0';
+        $n = strlen($integer) - $lead + $exponent; $k = strlen($digits);
+        if ($k <= $n && $n <= 21) $result = $digits . str_repeat('0', $n - $k);
+        elseif (0 < $n && $n <= 21) $result = substr($digits, 0, $n) . '.' . substr($digits, $n);
+        elseif (-6 < $n && $n <= 0) $result = '0.' . str_repeat('0', -$n) . $digits;
+        else { $e = $n - 1; $result = $digits[0] . ($k > 1 ? '.' . substr($digits, 1) : '') . 'e' . ($e < 0 ? '-' : '+') . abs($e); }
+        return ($negative ? '-' : '') . $result;
     }
 }
