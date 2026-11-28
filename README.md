@@ -23,7 +23,7 @@
 
 ```sh
 composer require paoatoffice/reports-web
-docker run -d -p 3107:3107 ghcr.io/reportsweb/engine:1.3.0
+docker run -d -p 3107:3107 ghcr.io/reportsweb/engine:1.3.1
 ```
 
 ```php
@@ -49,6 +49,8 @@ PHP 8.1 以降。PHP 標準の機能だけで動きます（curl 拡張は不要
 | `PrintData` | `setDefinition()`・`pageStart()`／`pageEnd()`・`setValue()`・`setRepeatedValue()`（明細行）・`setImage()`・`setBarcode()`・`changeAttributes()`・`toArray()`／`toJson()`／`save()` |
 | `ReportsWebEngine` | `renderPdf($printData)`（PDF のバイト列）・`health()`。URL の既定は環境変数 `REPORTS_ENGINE_URL`、なければ `http://127.0.0.1:3107` |
 | `ReportsWebEngineException` | エンジンのエラー。`getStatus()` で HTTP ステータス |
+
+Apple シリコンでもそのまま動く Docker イメージ（`ghcr.io/reportsweb/engine:1.3.1`）を使います。
 
 ## サンプルを選ぶ
 
@@ -93,7 +95,7 @@ Dockerを使わずに動かしたいときは、製品サイト（https://www.pa
 
 ```sh
 composer require paoatoffice/reports-web
-docker run -d -p 3107:3107 ghcr.io/reportsweb/engine:1.3.0
+docker run -d -p 3107:3107 ghcr.io/reportsweb/engine:1.3.1
 ```
 
 Without Docker: this repository does not include the runtime (engine, designer and previewer files) that the samples need. Use the same samples in the trial ZIP "WASM・7 言語セット" (Reports-Web-WASM.zip) from https://www.pao.ac/reports.web/, which includes the runtime.
